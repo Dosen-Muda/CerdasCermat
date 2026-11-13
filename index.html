@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Bel Cerdas Cermat Real-Time</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+              tech: ['Orbitron', 'sans-serif'],
+            },
+            colors: {
+              brand: {
+                dark: '#0B0F19',
+                card: '#131C2E',
+                accent: '#00F0FF',
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+        body { background-color: #080C14; color: #F3F4F6; font-family: 'Inter', sans-serif; touch-action: manipulation; }
+        .font-tech { font-family: 'Orbitron', sans-serif; }
+        .glass-panel { background: rgba(19, 28, 46, 0.75); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .glass-card { background: rgba(30, 41, 59, 0.5); backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        .buzzer-btn { position: relative; border-radius: 9999px; transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1); user-select: none; box-shadow: 0 12px 35px rgba(0, 0, 0, 0.6), inset 0 6px 10px rgba(255,255,255,0.3); }
+        .buzzer-btn:active:not(:disabled) { transform: scale(0.94) translateY(6px); box-shadow: 0 4px 15px rgba(0, 0, 0, 0.8), inset 0 2px 4px rgba(0,0,0,0.5); }
+        .buzzer-red { background: radial-gradient(circle at 35% 35%, #FF4D4D, #B91C1C, #7F1D1D); border: 4px solid #EF4444; }
+        .buzzer-blue { background: radial-gradient(circle at 35% 35%, #38BDF8, #1D4ED8, #1E3A8A); border: 4px solid #3B82F6; }
+        .buzzer-green { background: radial-gradient(circle at 35% 35%, #4ADE80, #15803D, #14532D); border: 4px solid #22C55E; }
+        .buzzer-yellow { background: radial-gradient(circle at 35% 35%, #FDE047, #CA8A04, #713F12); border: 4px solid #EAB308; }
+        .buzzer-purple { background: radial-gradient(circle at 35% 35%, #C084FC, #6B21A8, #3B0764); border: 4px solid #A855F7; }
+        .buzzer-orange { background: radial-gradient(circle at 35% 35%, #FB923C, #C2410C, #7C2D12); border: 4px solid #F97316; }
+        .pulse-ring { animation: pulse-ring 2s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite; }
+        @keyframes pulse-ring { 0% { transform: scale(0.95); opacity: 0.8; } 50% { transform: scale(1.05); opacity: 0.4; } 100% { transform: scale(0.95); opacity: 0.8; } }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #080C14; }
+        ::-webkit-scrollbar-thumb { background: #1E293B; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #334155; }
+        .disabled-team { opacity: 0.4; filter: grayscale(100%); cursor: not-allowed; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between selection:bg-cyan-500 selection:text-black">
+    <header class="glass-panel sticky top-0 z-50 border-b border-slate-800 px-4 py-3">
+        <div class="max-w-6xl mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-3 cursor-pointer" onclick="resetToHome()">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-cyan-500/30">
+                    <i class="fa-solid fa-bolt text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="font-tech text-lg md:text-xl font-bold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-teal-300 to-blue-500">QUIZ BUZZER</h1>
+                    <p class="text-xs text-slate-400 hidden sm:block">Sistem Bel Cerdas Cermat Real-Time</p>
+                </div>
+            </div>
+            <div id="global-status" class="flex items-center space-x-2 text-xs md:text-sm bg-slate-900/80 px-3 py-1.5 rounded-full border border-slate-700/60">
+                <span class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" id="status-dot"></span>
+                <span class="text-slate-300 font-medium" id="status-text">Siap Digunakan</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow max-w-6xl w-full mx-auto p-4 md:p-6 flex flex-col justify-center">
+        <!-- ROLE SELECTION -->
+        <section id="view-role-select" class="space-y-8 py-8 transition-all duration-300">
+            <div class="text-center space-y-3">
+                <h2 class="text-3xl md:text-4xl font-extrabold text-white tracking-tight">Pilih Peran Anda</h2>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+                <div onclick="selectRole('juri')" class="glass-panel p-6 rounded-2xl border border-slate-700/50 hover:border-cyan-500/60 cursor-pointer transition-all hover:scale-[1.02] group">
+                    <h3 class="text-2xl font-bold text-white mb-2 font-tech">JURI / HOST</h3>
+                    <p class="text-slate-400 text-sm mb-6">Buat ruang, atur skor, dan monitor bel.</p>
+                    <button class="w-full py-3 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-xl font-bold text-white">Buat Ruangan <i class="fa-solid fa-arrow-right ml-2"></i></button>
+                </div>
+                <div onclick="selectRole('regu')" class="glass-panel p-6 rounded-2xl border border-slate-700/50 hover:border-amber-500/60 cursor-pointer transition-all hover:scale-[1.02] group">
+                    <h3 class="text-2xl font-bold text-white mb-2 font-tech">PESERTA / REGU</h3>
+                    <p class="text-slate-400 text-sm mb-6">Gabung ke ruangan juri, pilih tim yang tersedia.</p>
+                    <button class="w-full py-3 bg-gradient-to-r from-amber-500 to-orange-600 rounded-xl font-bold text-white">Gabung Ruangan <i class="fa-solid fa-right-to-bracket ml-2"></i></button>
+                </div>
+            </div>
+        </section>
+
+        <!-- JURI SETUP -->
+        <section id="view-juri-setup" class="hidden max-w-lg mx-auto w-full glass-panel p-6 md:p-8 rounded-2xl space-y-6">
+            <h3 class="text-xl font-bold font-tech text-white">Pengaturan Juri</h3>
+            <div>
+                <label class="block text-sm font-medium text-slate-300 mb-2">Jumlah Tim Berkompetisi</label>
+                <div class="grid grid-cols-5 gap-2" id="team-count-selector">
+                    <button onclick="setTeamCount(2)" class="team-cnt-btn py-2.5 rounded-lg bg-slate-800 text-slate-300">2</button>
+                    <button onclick="setTeamCount(3)" class="team-cnt-btn py-2.5 rounded-lg bg-slate-800 text-slate-300">3</button>
+                    <button onclick="setTeamCount(4)" class="team-cnt-btn py-2.5 rounded-lg bg-cyan-500 text-black">4</button>
+                    <button onclick="setTeamCount(5)" class="team-cnt-btn py-2.5 rounded-lg bg-slate-800 text-slate-300">5</button>
+                    <button onclick="setTeamCount(6)" class="team-cnt-btn py-2.5 rounded-lg bg-slate-800 text-slate-300">6</button>
+                </div>
+            </div>
+            <button onclick="startJuriSession()" class="w-full py-3.5 bg-cyan-500 rounded-xl font-bold text-black font-tech">BUAT RUANGAN SEKARANG</button>
+        </section>
+
+        <!-- REGU ROOM CODE ENTRY -->
+        <section id="view-regu-room-entry" class="hidden max-w-md mx-auto w-full glass-panel p-6 rounded-2xl space-y-6">
+            <h3 class="text-xl font-bold font-tech text-white">Gabung Pertandingan</h3>
+            <div>
+                <label class="block text-sm text-slate-300 mb-2">Kode Ruangan Juri (4 Angka)</label>
+                <input type="text" id="input-room-code" maxlength="4" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-2xl font-tech text-center text-cyan-400">
+            </div>
+            <button onclick="connectToRoom()" class="w-full py-3.5 bg-amber-500 rounded-xl font-bold text-black font-tech">CEK KETERSEDIAAN TIM</button>
+        </section>
+
+        <!-- REGU TEAM SELECTOR -->
+        <section id="view-regu-team-select" class="hidden max-w-md mx-auto w-full glass-panel p-6 rounded-2xl space-y-6">
+            <h3 class="text-xl font-bold font-tech text-white">Pilih Regu Anda</h3>
+            <p class="text-sm text-slate-400">Tim yang berwarna abu-abu sudah dipilih oleh peserta lain.</p>
+            <div class="grid grid-cols-2 gap-3" id="team-join-selector"></div>
+            <button onclick="finalizeTeamSelection()" id="btn-finalize-team" class="w-full py-3.5 bg-emerald-500 rounded-xl font-bold text-black font-tech opacity-50 cursor-not-allowed" disabled>PILIH DAN MASUK</button>
+        </section>
+
+        <!-- JURI DASHBOARD -->
+        <section id="view-juri-dashboard" class="hidden space-y-6">
+            <div class="glass-panel p-4 rounded-2xl flex flex-wrap justify-between items-center gap-4">
+                <div class="flex items-center space-x-3">
+                    <span class="text-xs text-slate-400">Kode:</span>
+                    <span id="display-room-code" class="text-2xl font-tech font-extrabold text-cyan-400 bg-slate-900 px-3 py-1 rounded-lg">----</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <label class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 border border-slate-700 cursor-pointer">
+                        <i class="fa-solid fa-music text-cyan-400 mr-1"></i> Upload Suara
+                        <input type="file" id="custom-audio-upload" accept="audio/*" class="hidden" onchange="loadCustomAudio(event)">
+                    </label>
+                    <button onclick="resetToHome()" class="px-3 py-1.5 rounded-lg bg-red-900/40 hover:bg-red-900/60 text-xs text-red-300">Keluar</button>
+                </div>
+            </div>
+
+            <div id="buzzer-banner" class="glass-panel p-6 rounded-2xl text-center border-2 border-slate-700/50 min-h-[140px] flex flex-col justify-center">
+                <div id="banner-idle">
+                    <p class="text-slate-400 font-medium">Menunggu Peserta Menekan Bel...</p>
+                </div>
+                <div id="banner-active" class="hidden space-y-2 animate-bounce-short">
+                    <span id="banner-time-badge" class="px-3 py-1 rounded-full text-xs font-bold font-tech bg-slate-900/80 text-cyan-400">0.000 ms</span>
+                    <h2 id="banner-team-name" class="text-4xl md:text-5xl font-black font-tech tracking-wide uppercase">REGU MERAH</h2>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="glass-panel p-5 rounded-2xl flex flex-col justify-center">
+                    <button onclick="resetBuzzerState()" class="w-full py-5 bg-emerald-500 hover:bg-emerald-400 text-black font-black text-lg rounded-xl font-tech shadow-lg shadow-emerald-500/20">RESET BEL</button>
+                </div>
+
+                <!-- Timer Panel Restored -->
+                <div class="glass-panel p-5 rounded-2xl md:col-span-2 flex flex-col justify-between space-y-4">
+                    <div class="flex justify-between items-center">
+                        <h4 class="text-sm font-semibold text-slate-400 uppercase tracking-wider">Timer Hitung Mundur</h4>
+                        <div class="flex space-x-2">
+                            <button onclick="setTimerDuration(5)" class="px-2.5 py-1 text-xs rounded bg-slate-800 text-slate-300 font-medium hover:bg-slate-700">5s</button>
+                            <button onclick="setTimerDuration(10)" class="px-2.5 py-1 text-xs rounded bg-cyan-500 text-black font-bold">10s</button>
+                            <button onclick="setTimerDuration(15)" class="px-2.5 py-1 text-xs rounded bg-slate-800 text-slate-300 font-medium hover:bg-slate-700">15s</button>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between px-4 py-2 bg-slate-900/80 rounded-xl border border-slate-800">
+                        <div id="timer-display" class="font-tech text-4xl md:text-5xl font-black text-cyan-400 tracking-widest">
+                            10.0
+                        </div>
+                        <div class="flex space-x-2">
+                            <button onclick="toggleTimer()" id="btn-timer-start" class="w-12 h-12 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-lg flex items-center justify-center shadow-md">
+                                <i class="fa-solid fa-play"></i>
+                            </button>
+                            <button onclick="stopAndResetTimer()" class="w-12 h-12 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-lg flex items-center justify-center border border-slate-700">
+                                <i class="fa-solid fa-arrows-rotate"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="juri-scoreboard" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        </section>
+
+        <!-- REGU BUZZER INTERFACE -->
+        <section id="view-regu-buzzer" class="hidden max-w-md mx-auto w-full flex-grow flex flex-col justify-between py-2 space-y-4">
+            <div class="glass-panel px-4 py-3 rounded-2xl flex justify-between items-center text-sm">
+                <div class="flex items-center space-x-2">
+                    <span id="regu-team-badge" class="w-3.5 h-3.5 rounded-full bg-red-500"></span>
+                    <span id="regu-team-title" class="font-bold text-white font-tech">REGU MERAH</span>
+                </div>
+                <div class="text-xs text-slate-400">Skor: <span id="regu-current-score" class="font-tech font-bold text-cyan-400">0</span></div>
+            </div>
+
+            <div id="regu-status-banner" class="glass-panel p-4 rounded-2xl text-center border border-slate-700">
+                <p id="regu-status-text" class="text-sm font-bold text-emerald-400">BEL SIAP TEKAN!</p>
+            </div>
+
+            <div class="flex-grow flex items-center justify-center py-6">
+                <button id="main-buzzer-btn" onclick="pressBuzzer()" class="buzzer-btn w-64 h-64 md:w-72 md:h-72 flex flex-col items-center justify-center text-white active:scale-95 focus:outline-none">
+                    <i class="fa-solid fa-hand-pointer text-5xl mb-2"></i>
+                    <span class="font-tech text-3xl font-black">TEKAN BEL</span>
+                </button>
+            </div>
+            <div class="text-center text-xs text-slate-500 space-y-1">
+                <p>Ruangan: <span id="regu-room-code-display" class="font-tech text-slate-300">----</span></p>
+                <button onclick="resetToHome()" class="text-red-400 hover:text-red-300 underline">Keluar</button>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        let currentRole = null, teamCount = 4, selectedTeamKey = null, roomCode = null;
+        let peer = null, connections = {}, juriConn = null;
+        let buzzerLocked = false, lockedByTeam = null, buzzerTimestamp = null, scores = {};
+        let takenTeams = {}; 
+        
+        let customAudioBuffer = null;
+        let audioCtx = null;
+        
+        // Timer Variables
+        let timerDuration = 10;
+        let timerLeft = 10;
+        let timerInterval = null;
+
+        const TEAM_CONFIGS = {
+            merah: { name: 'Regu Merah', class: 'buzzer-red', badgeBg: 'bg-red-500', textCol: 'text-red-400', borderCol: 'border-red-500' },
+            biru: { name: 'Regu Biru', class: 'buzzer-blue', badgeBg: 'bg-blue-500', textCol: 'text-blue-400', borderCol: 'border-blue-500' },
+            hijau: { name: 'Regu Hijau', class: 'buzzer-green', badgeBg: 'bg-green-500', textCol: 'text-green-400', borderCol: 'border-green-500' },
+            kuning: { name: 'Regu Kuning', class: 'buzzer-yellow', badgeBg: 'bg-yellow-500', textCol: 'text-yellow-400', borderCol: 'border-yellow-500' },
+            ungu: { name: 'Regu Ungu', class: 'buzzer-purple', badgeBg: 'bg-purple-500', textCol: 'text-purple-400', borderCol: 'border-purple-500' },
+            oranye: { name: 'Regu Oranye', class: 'buzzer-orange', badgeBg: 'bg-orange-500', textCol: 'text-orange-400', borderCol: 'border-orange-500' }
+        };
+        const ALL_TEAM_KEYS = ['merah', 'biru', 'hijau', 'kuning', 'ungu', 'oranye'];
+
+        function getAudioContext() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            return audioCtx;
+        }
+
+        function loadCustomAudio(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                const arrayBuffer = e.target.result;
+                const ctx = getAudioContext();
+                ctx.decodeAudioData(arrayBuffer, (buffer) => {
+                    customAudioBuffer = buffer;
+                    alert("Suara Bel Kustom Berhasil Diupload!");
+                });
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function playBuzzerSound() {
+            const ctx = getAudioContext();
+            if (customAudioBuffer) {
+                const source = ctx.createBufferSource();
+                source.buffer = customAudioBuffer;
+                source.connect(ctx.destination);
+                source.start(0);
+            } else {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(440, ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(180, ctx.currentTime + 0.4);
+                gain.gain.setValueAtTime(0.6, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+                osc.connect(gain); gain.connect(ctx.destination);
+                osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.5);
+            }
+        }
+
+        document.addEventListener('click', () => { getAudioContext(); }, { once: true });
+
+        function hideAllViews() {
+            ['view-role-select', 'view-juri-setup', 'view-regu-room-entry', 'view-regu-team-select', 'view-juri-dashboard', 'view-regu-buzzer'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+        }
+
+        function updateGlobalStatus(color, text) {
+            document.getElementById('status-text').innerText = text;
+            const dot = document.getElementById('status-dot');
+            dot.className = "w-2.5 h-2.5 rounded-full " + (color === 'green' ? "bg-emerald-500 animate-pulse" : color === 'red' ? "bg-red-500" : "bg-amber-500 animate-pulse");
+        }
+
+        function resetToHome() {
+            if (peer) peer.destroy();
+            peer = null; connections = {}; juriConn = null; takenTeams = {}; customAudioBuffer = null;
+            stopAndResetTimer();
+            hideAllViews();
+            document.getElementById('view-role-select').classList.remove('hidden');
+            updateGlobalStatus('amber', 'Siap Digunakan');
+        }
+
+        function selectRole(role) {
+            currentRole = role; getAudioContext(); hideAllViews();
+            if (role === 'juri') { document.getElementById('view-juri-setup').classList.remove('hidden'); setTeamCount(4); } 
+            else { document.getElementById('view-regu-room-entry').classList.remove('hidden'); }
+        }
+
+        function setTeamCount(cnt) {
+            teamCount = cnt;
+            document.querySelectorAll('.team-cnt-btn').forEach(btn => {
+                btn.className = parseInt(btn.innerText) === cnt ? "team-cnt-btn py-2.5 rounded-lg bg-cyan-500 text-black font-bold" : "team-cnt-btn py-2.5 rounded-lg bg-slate-800 text-slate-300";
+            });
+        }
+
+        function startJuriSession() {
+            hideAllViews(); document.getElementById('view-juri-dashboard').classList.remove('hidden');
+            updateGlobalStatus('amber', 'Membuat Ruangan...');
+            roomCode = Math.floor(1000 + Math.random() * 9000).toString();
+            document.getElementById('display-room-code').innerText = roomCode;
+            
+            scores = {}; takenTeams = {};
+            for (let i = 0; i < teamCount; i++) scores[ALL_TEAM_KEYS[i]] = 0;
+            renderJuriScoreboard();
+            
+            initJuriPeer('quiz-buzzer-room-' + roomCode);
+        }
+
+        function initJuriPeer(peerId) {
+            if (peer) peer.destroy();
+            peer = new Peer(peerId, { config: {'iceServers': [{ urls: 'stun:stun.l.google.com:19302' }] } });
+            peer.on('open', () => updateGlobalStatus('green', 'Ruangan Online'));
+            peer.on('connection', (conn) => {
+                conn.on('open', () => { connections[conn.peer] = conn; });
+                conn.on('data', (data) => handleIncomingReguMessage(data, conn));
+                conn.on('close', () => handleReguDisconnect(conn.peer));
+                conn.on('error', () => handleReguDisconnect(conn.peer));
+            });
+            peer.on('error', (err) => { if(err.type === 'unavailable-id') { roomCode = Math.floor(1000 + Math.random() * 9000).toString(); document.getElementById('display-room-code').innerText = roomCode; setTimeout(() => initJuriPeer('quiz-buzzer-room-' + roomCode), 500); } });
+        }
+
+        function broadcastToRegu(data) { Object.values(connections).forEach(conn => { if (conn && conn.open) conn.send(data); }); }
+
+        function handleIncomingReguMessage(data, conn) {
+            if (data.type === 'CHECK_TEAMS') {
+                conn.send({ type: 'TEAM_STATUS', takenTeams, maxTeams: teamCount });
+            } else if (data.type === 'SELECT_TEAM') {
+                if (takenTeams[data.teamKey]) {
+                    conn.send({ type: 'TEAM_REJECTED' });
+                } else {
+                    takenTeams[data.teamKey] = conn.peer;
+                    conn.send({ type: 'TEAM_ACCEPTED', teamKey: data.teamKey });
+                    broadcastToRegu({ type: 'TEAM_STATUS', takenTeams, maxTeams: teamCount });
+                }
+            } else if (data.type === 'BUZZ' && !buzzerLocked) {
+                buzzerLocked = true; lockedByTeam = data.teamKey;
+                const responseTime = ((data.timestamp - buzzerTimestamp) / 1000).toFixed(3);
+                playBuzzerSound();
+                broadcastToRegu({ type: 'LOCKOUT', lockedBy: data.teamKey, responseTime });
+                showBuzzerBanner(data.teamKey, responseTime);
+                renderJuriScoreboard(data.teamKey, responseTime);
+                // Pause timer automatically on buzz
+                if(timerInterval) toggleTimer();
+            }
+        }
+
+        function handleReguDisconnect(peerId) {
+            delete connections[peerId];
+            for (const key in takenTeams) {
+                if (takenTeams[key] === peerId) {
+                    delete takenTeams[key];
+                    broadcastToRegu({ type: 'TEAM_STATUS', takenTeams, maxTeams: teamCount });
+                    break;
+                }
+            }
+        }
+
+        // TIMER LOGIC
+        function setTimerDuration(seconds) {
+            stopAndResetTimer();
+            timerDuration = seconds;
+            timerLeft = seconds;
+            document.getElementById('timer-display').innerText = timerLeft.toFixed(1);
+        }
+
+        function toggleTimer() {
+            const btn = document.getElementById('btn-timer-start');
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+                btn.innerHTML = `<i class="fa-solid fa-play"></i>`;
+                btn.className = "w-12 h-12 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-lg flex items-center justify-center shadow-md";
+            } else {
+                if (timerLeft <= 0) timerLeft = timerDuration;
+                btn.innerHTML = `<i class="fa-solid fa-pause"></i>`;
+                btn.className = "w-12 h-12 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-lg flex items-center justify-center shadow-md";
+
+                timerInterval = setInterval(() => {
+                    timerLeft -= 0.1;
+                    if (timerLeft <= 0) {
+                        timerLeft = 0;
+                        stopAndResetTimer();
+                        playBuzzerSound(); // SOUND PLAYS WHEN TIMER REACHES 0
+                    }
+                    document.getElementById('timer-display').innerText = timerLeft.toFixed(1);
+                }, 100);
+            }
+        }
+
+        function stopAndResetTimer() {
+            clearInterval(timerInterval);
+            timerInterval = null;
+            timerLeft = timerDuration;
+            const display = document.getElementById('timer-display');
+            if(display) display.innerText = timerLeft.toFixed(1);
+            const btn = document.getElementById('btn-timer-start');
+            if (btn) {
+                btn.innerHTML = `<i class="fa-solid fa-play"></i>`;
+                btn.className = "w-12 h-12 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-lg flex items-center justify-center shadow-md";
+            }
+        }
+
+        // REGU LOGIC
+        function connectToRoom() {
+            roomCode = document.getElementById('input-room-code').value.trim();
+            if (roomCode.length !== 4) return alert("Kode 4 digit!");
+            updateGlobalStatus('amber', 'Menghubungkan...');
+            initReguPeer();
+        }
+
+        function initReguPeer() {
+            if (peer) peer.destroy();
+            peer = new Peer({ config: {'iceServers': [{ urls: 'stun:stun.l.google.com:19302' }] } });
+            peer.on('open', () => {
+                juriConn = peer.connect('quiz-buzzer-room-' + roomCode, { reliable: true });
+                juriConn.on('open', () => {
+                    updateGlobalStatus('green', 'Terhubung ke Juri');
+                    hideAllViews(); document.getElementById('view-regu-team-select').classList.remove('hidden');
+                    juriConn.send({ type: 'CHECK_TEAMS' });
+                });
+                juriConn.on('data', handleIncomingJuriMessage);
+                juriConn.on('close', () => resetToHome());
+            });
+        }
+
+        function handleIncomingJuriMessage(data) {
+            if (data.type === 'TEAM_STATUS') {
+                renderTeamSelector(data.takenTeams, data.maxTeams);
+            } else if (data.type === 'TEAM_ACCEPTED') {
+                hideAllViews(); document.getElementById('view-regu-buzzer').classList.remove('hidden');
+                setupBuzzerUI(data.teamKey);
+            } else if (data.type === 'TEAM_REJECTED') {
+                alert("Tim sudah diambil orang lain!");
+            } else if (data.type === 'LOCKOUT') {
+                buzzerLocked = true;
+                if (data.lockedBy === selectedTeamKey) { setReguBuzzerLock(false, 'ANDA TEKAN PERTAMA!', true, data.responseTime); if(navigator.vibrate) navigator.vibrate([100,50,100]); }
+                else { setReguBuzzerLock(true, 'DILOCK OLEH ' + TEAM_CONFIGS[data.lockedBy].name.toUpperCase()); }
+            } else if (data.type === 'RESET') {
+                buzzerLocked = false; setReguBuzzerLock(false, 'BEL SIAP TEKAN!');
+            } else if (data.type === 'SCORE_UPDATE' && data.teamKey === selectedTeamKey) {
+                document.getElementById('regu-current-score').innerText = data.score;
+            }
+        }
+
+        function renderTeamSelector(taken, maxTeams) {
+            const container = document.getElementById('team-join-selector');
+            container.innerHTML = '';
+            let hasSelection = false;
+            for (let i = 0; i < maxTeams; i++) {
+                const key = ALL_TEAM_KEYS[i];
+                const conf = TEAM_CONFIGS[key];
+                const isTaken = taken[key] ? true : false;
+                const disableClass = isTaken ? 'disabled-team' : 'hover:border-slate-600 cursor-pointer';
+                container.innerHTML += `<button type="button" onclick="!${isTaken} && selectReguTeam('${key}')" id="team-btn-${key}" class="regu-select-btn p-3 rounded-xl bg-slate-900 border border-slate-800 flex items-center space-x-2 ${disableClass}"><span class="w-3.5 h-3.5 rounded-full ${conf.badgeBg}"></span><span class="text-sm font-bold text-slate-200">${conf.name} ${isTaken?'(Terisi)':''}</span></button>`;
+            }
+        }
+
+        function selectReguTeam(key) {
+            selectedTeamKey = key;
+            document.querySelectorAll('.regu-select-btn').forEach(b => { b.classList.remove('border-cyan-400'); b.classList.add('border-slate-800'); });
+            document.getElementById('team-btn-'+key).classList.add('border-cyan-400');
+            const btn = document.getElementById('btn-finalize-team');
+            btn.disabled = false; btn.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+
+        function finalizeTeamSelection() {
+            if(selectedTeamKey) juriConn.send({ type: 'SELECT_TEAM', teamKey: selectedTeamKey });
+        }
+
+        function setupBuzzerUI(key) {
+            const conf = TEAM_CONFIGS[key];
+            document.getElementById('regu-team-title').innerText = conf.name.toUpperCase();
+            document.getElementById('regu-team-badge').className = `w-3.5 h-3.5 rounded-full ${conf.badgeBg}`;
+            document.getElementById('regu-room-code-display').innerText = roomCode;
+            document.getElementById('main-buzzer-btn').className = `buzzer-btn ${conf.class} w-64 h-64 md:w-72 md:h-72 flex flex-col items-center justify-center text-white active:scale-95 focus:outline-none`;
+        }
+
+        function pressBuzzer() {
+            if (buzzerLocked || !juriConn) return;
+            buzzerLocked = true; if (navigator.vibrate) navigator.vibrate(80);
+            juriConn.send({ type: 'BUZZ', teamKey: selectedTeamKey, timestamp: Date.now() });
+        }
+
+        function setReguBuzzerLock(isLocked, msg, isWinner=false, time=null) {
+            const btn = document.getElementById('main-buzzer-btn');
+            const txt = document.getElementById('regu-status-text');
+            if (isLocked) { btn.disabled = true; btn.classList.add('opacity-40', 'grayscale'); txt.innerHTML = msg; txt.className="text-red-400 font-bold"; }
+            else if (isWinner) { btn.disabled = true; btn.classList.remove('opacity-40', 'grayscale'); txt.innerHTML = msg; txt.className="text-cyan-300 font-bold font-tech"; }
+            else { btn.disabled = false; btn.classList.remove('opacity-40', 'grayscale'); txt.innerHTML = msg; txt.className="text-emerald-400 font-bold"; }
+        }
+
+        function resetBuzzerState() {
+            buzzerLocked = false; lockedByTeam = null; buzzerTimestamp = Date.now();
+            document.getElementById('banner-idle').classList.remove('hidden');
+            document.getElementById('banner-active').classList.add('hidden');
+            document.getElementById('buzzer-banner').className = "glass-panel p-6 rounded-2xl text-center border-2 border-slate-700/50 min-h-[140px] flex flex-col justify-center";
+            broadcastToRegu({ type: 'RESET' });
+            renderJuriScoreboard();
+        }
+
+        function showBuzzerBanner(teamKey, time) {
+            const conf = TEAM_CONFIGS[teamKey];
+            document.getElementById('banner-idle').classList.add('hidden');
+            document.getElementById('banner-active').classList.remove('hidden');
+            document.getElementById('banner-team-name').innerText = conf.name.toUpperCase();
+            document.getElementById('banner-team-name').className = `text-4xl md:text-5xl font-black font-tech uppercase ${conf.textCol}`;
+            document.getElementById('banner-time-badge').innerText = `WAKTU REAKSI: ${time} DETIK`;
+            document.getElementById('buzzer-banner').className = `glass-panel p-6 rounded-2xl text-center border-2 ${conf.borderCol} bg-slate-900/90 min-h-[140px] flex flex-col justify-center pulse-ring`;
+        }
+
+        function renderJuriScoreboard(highlight=null, time=null) {
+            const container = document.getElementById('juri-scoreboard'); container.innerHTML = '';
+            for (let i = 0; i < teamCount; i++) {
+                const key = ALL_TEAM_KEYS[i]; const conf = TEAM_CONFIGS[key]; const score = scores[key] || 0;
+                const isP = lockedByTeam === key;
+                const border = isP ? `${conf.borderCol} bg-slate-800/80 ring-2 ring-cyan-500/50` : "border-slate-800";
+                container.innerHTML += `
+                    <div class="glass-card p-4 rounded-xl border ${border} flex flex-col justify-between space-y-3">
+                        <div class="flex justify-between items-center"><div class="flex items-center space-x-2"><span class="w-3 h-3 rounded-full ${conf.badgeBg}"></span><span class="font-bold text-white font-tech">${conf.name}</span></div>${isP?`<span class="px-2 py-0.5 rounded text-xs font-bold bg-cyan-500 text-black">MENEKAN</span>`:'<span class="text-xs text-slate-500">Siap</span>'}</div>
+                        <div class="flex justify-between items-center bg-slate-900/80 px-3 py-2 rounded-lg border border-slate-800"><span class="text-xs text-slate-400">Skor:</span><span class="text-2xl font-black font-tech text-cyan-400">${score}</span></div>
+                        <div class="grid grid-cols-2 gap-1.5">
+                            <button onclick="changeScore('${key}', 100)" class="py-1.5 bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 text-xs rounded-lg">+100</button>
+                            <button onclick="changeScore('${key}', -50)" class="py-1.5 bg-red-950/60 border border-red-500/30 text-red-300 text-xs rounded-lg">-50</button>
+                        </div>
+                    </div>`;
+            }
+        }
+        function changeScore(key, delta) { scores[key] += delta; renderJuriScoreboard(); broadcastToRegu({type:'SCORE_UPDATE', teamKey:key, score:scores[key]}); }
+        
+        buzzerTimestamp = Date.now();
+    </script>
+</body>
+</html>
